@@ -3,6 +3,7 @@ pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./PredictionMarket.sol";
+import "./Utils.sol";
 
 /**
  * @title CRESettlementOracle
@@ -10,38 +11,24 @@ import "./PredictionMarket.sol";
  *      and triggers settlement on the PredictionMarket contract.
  */
 contract CRESettlementOracle is Ownable {
-    // --- State Variables ---
 
     PredictionMarket public predictionMarket;
-    mapping(address => bool) public authorizedNodes; // Addresses allowed to submit settlements (CRE nodes)
 
-    // --- Events ---
+    // Addresses allowed to submit settlements (CRE nodes)
+    mapping(address => bool) public authorizedNodes; 
 
-    event SettlementReceived(
-        uint256 indexed marketId,
-        string outcome,
-        address indexed node
-    );
-    event NodeAuthorized(address indexed node, bool authorized);
-    event MarketAddressUpdated(address indexed newMarket);
-
-    // --- Modifiers ---
 
     modifier onlyAuthorizedNode() {
-        require(
-            authorizedNodes[msg.sender] || msg.sender == owner(),
-            "Not authorized to settle"
-        );
+        if (!authorizedNodes[msg.sender] && msg.sender != owner())
+            revert Utils.Unauthorized();
         _;
     }
 
-    // --- Constructor ---
 
     constructor(address _predictionMarket) Ownable(msg.sender) {
         predictionMarket = PredictionMarket(_predictionMarket);
     }
 
-    // --- Core Functions ---
 
     /**
      * @notice Receives settlement data from CRE workflow.
@@ -59,18 +46,16 @@ contract CRESettlementOracle is Ownable {
 
         predictionMarket.settleMarket(marketId, outcome);
 
-        emit SettlementReceived(marketId, outcome, msg.sender);
+        emit Utils.SettlementReceived(marketId, outcome, msg.sender);
     }
-
-    // --- Admin Functions ---
 
     /**
      * @notice Updates the PredictionMarket contract address.
      */
     function updatePredictionMarket(address _newMarket) external onlyOwner {
-        require(_newMarket != address(0), "Invalid address");
+        if (_newMarket == address(0)) revert Utils.InvalidAddress();
         predictionMarket = PredictionMarket(_newMarket);
-        emit MarketAddressUpdated(_newMarket);
+        emit Utils.MarketAddressUpdated(_newMarket);
     }
 
     /**
@@ -78,11 +63,11 @@ contract CRESettlementOracle is Ownable {
      * @param node The address of the CRE node wallet.
      * @param authorized True to authorize, false to revoke.
      */
-    function setNodeAuthorization(
+    function determineNodeAuth(
         address node,
         bool authorized
     ) external onlyOwner {
         authorizedNodes[node] = authorized;
-        emit NodeAuthorized(node, authorized);
+        emit Utils.NodeAuthorized(node, authorized);
     }
 }

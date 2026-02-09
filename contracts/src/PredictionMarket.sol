@@ -3,6 +3,7 @@ pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "./Utils.sol";
 
 /**
  * @title PredictionMarket
@@ -10,105 +11,42 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  *      Integrated with Chainlink Runtime Environment (CRE) for AI-powered settlement.
  */
 contract PredictionMarket is Ownable, ReentrancyGuard {
-    // --- Structs ---
-
-    struct Market {
-        uint256 id;
-        string question;
-        string[] outcomes; // Possible outcomes (e.g., ["Yes", "No"])
-        uint256 bettingDeadline;
-        uint256 revealDeadline;
-        bool revealed;
-        string finalOutcome; // Set by Oracle
-        bool settled;
-        uint256 totalPool;
-        mapping(string => uint256) outcomePools; // Outcome -> Total Amount Bet
-    }
-
-    struct Bet {
-        bytes32 commitment; // keccak256(abi.encodePacked(amount, outcome, secret))
-        uint256 amount;
-        bool revealed;
-        string revealedOutcome;
-        address bettor;
-    }
-
-    // --- State Variables ---
 
     uint256 public nextMarketId;
     address public oracleAddress; // CRESettlementOracle address
 
-    mapping(uint256 => Market) public markets;
-    mapping(uint256 => mapping(address => Bet[])) public bets; // MarketId -> User -> Bets
-
-    // --- Events ---
-
-    event MarketCreated(
-        uint256 indexed marketId,
-        string question,
-        uint256 bettingDeadline
-    );
-    event BetPlaced(
-        uint256 indexed marketId,
-        address indexed bettor,
-        bytes32 commitment,
-        uint256 amount
-    );
-    event BetRevealed(
-        uint256 indexed marketId,
-        address indexed bettor,
-        string outcome,
-        uint256 amount
-    );
-    event MarketSettled(uint256 indexed marketId, string outcome);
-    event WinningsClaimed(
-        uint256 indexed marketId,
-        address indexed bettor,
-        uint256 amount
-    );
-
-    // --- Modifiers ---
+    mapping(uint256 => Utils.Market) public markets;
+    // MarketId -> User -> Bets
+    mapping(uint256 => mapping(address => Utils.Bet[])) public bets; 
 
     modifier onlyOracle() {
-        require(msg.sender == oracleAddress, "Only Oracle can call this");
+        if (msg.sender != oracleAddress) revert Utils.Unauthorized();
         _;
     }
 
     modifier beforeDeadline(uint256 marketId) {
-        require(
-            block.timestamp < markets[marketId].bettingDeadline,
-            "Betting phase over"
-        );
+        if (block.timestamp >= markets[marketId].bettingDeadline)
+            revert Utils.BettingPhaseClosed();
         _;
     }
 
     modifier duringRevealPhase(uint256 marketId) {
-        require(
-            block.timestamp >= markets[marketId].bettingDeadline,
-            "Betting phase active"
-        );
-        require(
-            block.timestamp < markets[marketId].revealDeadline,
-            "Reveal phase over"
-        );
+        if (block.timestamp < markets[marketId].bettingDeadline)
+            revert Utils.BettingPhaseActive();
+        if (block.timestamp >= markets[marketId].revealDeadline)
+            revert Utils.RevealPhaseClosed();
         _;
     }
 
     modifier afterRevealPhase(uint256 marketId) {
-        require(
-            block.timestamp >= markets[marketId].revealDeadline,
-            "Reveal phase active"
-        );
+        if (block.timestamp < markets[marketId].revealDeadline)
+            revert Utils.RevealPhaseActive();
         _;
     }
-
-    // --- Constructor ---
 
     constructor(address _oracleAddress) Ownable(msg.sender) {
         oracleAddress = _oracleAddress;
     }
-
-    // --- Core Functions ---
 
     /**
      * @notice Creates a new prediction market.
@@ -123,11 +61,11 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
         uint256 duration,
         uint256 revealDuration
     ) external onlyOwner {
-        require(duration > 0, "Duration must be positive");
-        require(outcomes.length > 1, "Must have at least 2 outcomes");
+        if (duration == 0) revert Utils.InvalidBettingDeadline();
+        if (outcomes.length <= 1) revert Utils.InvalidOutcomeCount();
 
         uint256 marketId = nextMarketId++;
-        Market storage market = markets[marketId];
+        Utils.Market storage market = markets[marketId];
 
         market.id = marketId;
         market.question = question;
@@ -136,7 +74,7 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
         market.revealDeadline = market.bettingDeadline + revealDuration;
         market.settled = false;
 
-        emit MarketCreated(marketId, question, market.bettingDeadline);
+        emit Utils.MarketCreated(marketId, question, market.bettingDeadline);
     }
 
     /**
@@ -148,10 +86,10 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
         uint256 marketId,
         bytes32 commitment
     ) external payable nonReentrant beforeDeadline(marketId) {
-        require(msg.value > 0, "Bet amount must be > 0");
+        if (msg.value == 0) revert Utils.InvalidAmount();
 
         bets[marketId][msg.sender].push(
-            Bet({
+            Utils.Bet({
                 commitment: commitment,
                 amount: msg.value,
                 revealed: false,
@@ -162,7 +100,7 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
 
         markets[marketId].totalPool += msg.value;
 
-        emit BetPlaced(marketId, msg.sender, commitment, msg.value);
+        emit Utils.BetPlaced(marketId, msg.sender, commitment, msg.value);
     }
 
     /**
@@ -178,17 +116,17 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
         string memory secret,
         uint256 betIndex
     ) external nonReentrant duringRevealPhase(marketId) {
-        Bet storage bet = bets[marketId][msg.sender][betIndex];
-        require(!bet.revealed, "Bet already revealed");
+        Utils.Bet storage bet = bets[marketId][msg.sender][betIndex];
+        if (bet.revealed) revert Utils.AlreadyRevealed();
 
         // Verify commitment
-        // NOTE: We do not include msg.sender in the hash to allow for anonymity if desired in future upgrades,
+        // NOTE: i don't include msg.sender in the hash to allow for anonymity if desired in future upgrades,
         // but for now, the bet is tied to the msg.sender's storage anyway.
-        // Commitment = keccak256(abi.encodePacked(amount, outcome, secret))
+        // commitment = keccak256(abi.encodePacked(amount, outcome, secret))
         bytes32 verifyHash = keccak256(
             abi.encodePacked(bet.amount, outcome, secret)
         );
-        require(verifyHash == bet.commitment, "Invalid commitment");
+        if (verifyHash != bet.commitment) revert Utils.InvalidCommitment();
 
         // Verify outcome is valid for this market
         bool validOutcome = false;
@@ -201,13 +139,13 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
                 break;
             }
         }
-        require(validOutcome, "Invalid outcome for this market");
+        if (!validOutcome) revert Utils.InvalidOutcome();
 
         bet.revealed = true;
         bet.revealedOutcome = outcome;
         markets[marketId].outcomePools[outcome] += bet.amount;
 
-        emit BetRevealed(marketId, msg.sender, outcome, bet.amount);
+        emit Utils.BetRevealed(marketId, msg.sender, outcome, bet.amount);
     }
 
     /**
@@ -219,13 +157,13 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
         uint256 marketId,
         string memory outcome
     ) external onlyOracle afterRevealPhase(marketId) {
-        Market storage market = markets[marketId];
-        require(!market.settled, "Market already settled");
+        Utils.Market storage market = markets[marketId];
+        if (market.settled) revert Utils.AlreadySettled();
 
         market.finalOutcome = outcome;
         market.settled = true;
 
-        emit MarketSettled(marketId, outcome);
+        emit Utils.MarketSettled(marketId, outcome);
     }
 
     /**
@@ -233,19 +171,19 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
      * @param marketId The ID of the market.
      */
     function claimWinnings(uint256 marketId) external nonReentrant {
-        Market storage market = markets[marketId];
-        require(market.settled, "Market not settled");
+        Utils.Market storage market = markets[marketId];
+        if (!market.settled) revert Utils.MarketNotSettled();
 
         uint256 payout = 0;
         uint256 totalWinningPool = market.outcomePools[market.finalOutcome];
 
-        // If nobody won (e.g., all bets were on wrong outcome), the pot is locked (or could implement refund/burn)
-        require(totalWinningPool > 0, "No winners in this market");
+        // If nobody won (e.g., all bets were on wrong outcome), the pot is locked
+        if (totalWinningPool == 0) revert Utils.NoWinners();
 
-        Bet[] storage userBets = bets[marketId][msg.sender];
+        Utils.Bet[] storage userBets = bets[marketId][msg.sender];
         // In a real implementation, we'd need to iterate carefully or use a withdrawal pattern to avoid gas limits
         for (uint i = 0; i < userBets.length; i++) {
-            Bet storage bet = userBets[i];
+            Utils.Bet storage bet = userBets[i];
 
             // Check if bet was revealed AND matched the final outcome
             if (
@@ -264,12 +202,12 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
             }
         }
 
-        require(payout > 0, "No winnings to claim");
+        if (payout == 0) revert Utils.NoWinnings();
 
         (bool success, ) = payable(msg.sender).call{value: payout}("");
-        require(success, "Transfer failed");
+        if (!success) revert Utils.TransferFailed();
 
-        emit WinningsClaimed(marketId, msg.sender, payout);
+        emit Utils.WinningsClaimed(marketId, msg.sender, payout);
     }
 
     /**
