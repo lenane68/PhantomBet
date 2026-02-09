@@ -2,7 +2,6 @@
 pragma solidity 0.8.20;
 
 library Utils {
-
     error Unauthorized(); // Sender is not authorized (e.g. not Oracle)
     error InvalidMarketId();
     error InvalidOutcome(); // Outcome choice doesn't exist or is invalid
@@ -10,34 +9,31 @@ library Utils {
     error InvalidAmount(); // 0 amount or insufficient balance
     error InvalidBettingDeadline(); // Deadline logic fail
     error InvalidRevealDeadline();
-    
+
     // Betting/Reveal State Errors
-    error BettingPhaseClosed(); 
+    error BettingPhaseClosed();
     error BettingPhaseActive();
     error RevealPhaseClosed();
     error RevealPhaseActive();
-    
+
     // Reveal Specific
     error InvalidReveal();
     error AlreadyRevealed();
     error InvalidCommitment();
-    
+
     // Settlement/Claiming
     error InvalidSettlement(); // General settlement error
     error AlreadySettled();
     error MarketNotSettled();
-    
+
     error InvalidWinningsClaim(); // General claim error
     error NoWinners();
     error NoWinnings();
-    
+
     error TransferFailed();
     error InvalidAddress();
 
-
-
-
-  // --- Events ---
+    // --- Events ---
 
     event SettlementReceived(
         uint256 indexed marketId,
@@ -80,17 +76,17 @@ library Utils {
         uint256 bettingDeadline;
         uint256 revealDeadline;
         bool revealed;
-        string finalOutcome; // Set by Oracle
+        uint256 finalOutcomeId; // Set by Oracle (Index in outcomes array)
         bool settled;
         uint256 totalPool;
-        mapping(string => uint256) outcomePools; // Outcome -> Total Amount Bet
+        mapping(uint256 => uint256) outcomePools; // OutcomeIndex -> Total Amount Bet
     }
 
     struct Bet {
-        bytes32 commitment; // keccak256(abi.encodePacked(amount, outcome, secret))
+        bytes32 commitment; // keccak256(abi.encodePacked(amount, outcomeString, secret))
         uint256 amount;
         bool revealed;
-        string revealedOutcome;
+        uint256 revealedOutcomeId;
         address bettor;
-    } 
+    }
 }

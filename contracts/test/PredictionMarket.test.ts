@@ -24,7 +24,7 @@ describe("PhantomBet Prediction Market", function () {
         await predictionMarket.setOracle(await oracle.getAddress());
 
         // Authorize oracleNode in the Oracle contract
-        await oracle.setNodeAuthorization(oracleNode.address, true);
+        await oracle.determineNodeAuth(oracleNode.address, true);
 
         return { predictionMarket, oracle, owner, bettor1, bettor2, oracleNode };
     }
@@ -95,7 +95,7 @@ describe("PhantomBet Prediction Market", function () {
             // Fast forward to Reveal Phase
             await time.increase(3601);
 
-            await expect(predictionMarket.connect(bettor1).revealBet(marketId, outcome, secret, 0))
+            await expect(predictionMarket.connect(bettor1).revealBet(marketId, 0, secret, 0))
                 .to.emit(predictionMarket, "BetRevealed")
                 .withArgs(marketId, bettor1.address, outcome, amount);
         });
@@ -113,7 +113,7 @@ describe("PhantomBet Prediction Market", function () {
             await time.increase(3601);
 
             await expect(
-                predictionMarket.connect(bettor1).revealBet(0, "A", "wrongSecret", 0)
+                predictionMarket.connect(bettor1).revealBet(0, 0, "wrongSecret", 0)
             ).to.be.revertedWithCustomError(predictionMarket, "InvalidCommitment");
         });
     });
@@ -141,8 +141,8 @@ describe("PhantomBet Prediction Market", function () {
 
             // 3. Reveal Phase
             await time.increase(3601);
-            await predictionMarket.connect(bettor1).revealBet(marketId, "Win", secret1, 0);
-            await predictionMarket.connect(bettor2).revealBet(marketId, "Lose", secret2, 0);
+            await predictionMarket.connect(bettor1).revealBet(marketId, 0, secret1, 0); // "Win" is index 0
+            await predictionMarket.connect(bettor2).revealBet(marketId, 1, secret2, 0); // "Lose" is index 1
 
             // 4. Settle Phase (Wait for reveal deadline to pass)
             await time.increase(1801);

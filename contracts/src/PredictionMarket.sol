@@ -11,13 +11,12 @@ import "./Utils.sol";
  *      Integrated with Chainlink Runtime Environment (CRE) for AI-powered settlement.
  */
 contract PredictionMarket is Ownable, ReentrancyGuard {
-
     uint256 public nextMarketId;
     address public oracleAddress; // CRESettlementOracle address
 
     mapping(uint256 => Utils.Market) public markets;
     // MarketId -> User -> Bets
-    mapping(uint256 => mapping(address => Utils.Bet[])) public bets; 
+    mapping(uint256 => mapping(address => Utils.Bet[])) public bets;
 
     modifier onlyOracle() {
         if (msg.sender != oracleAddress) revert Utils.Unauthorized();
@@ -56,8 +55,8 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
      * @param revealDuration Duration of the reveal phase in seconds.
      */
     function createMarket(
-        string memory question,
-        string[] memory outcomes,
+        string calldata question,
+        string[] calldata outcomes,
         uint256 duration,
         uint256 revealDuration
     ) external onlyOwner {
@@ -80,7 +79,7 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
     /**
      * @notice Places a privacy-preserving bet using a commitment.
      * @param marketId The ID of the market to bet on.
-     * @param commitment The hash of the bet details: keccak256(amount + outcome + secret).
+     * @param commitment The hash of the bet details: keccak256(amount + outcomeString + secret).
      */
     function placeBet(
         uint256 marketId,
@@ -93,7 +92,7 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
                 commitment: commitment,
                 amount: msg.value,
                 revealed: false,
-                revealedOutcome: "",
+                revealedOutcomeId: 0,
                 bettor: msg.sender
             })
         );
@@ -106,61 +105,67 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
     /**
      * @notice Reveals a previously placed bet.
      * @param marketId The ID of the market.
-     * @param outcome The outcome the user bet on.
+     * @param outcomeIndex The index of the outcome in the market's outcomes array.
      * @param secret The secret used to generate the commitment.
      * @param betIndex The index of the bet in the user's bet array.
      */
     function revealBet(
         uint256 marketId,
-        string memory outcome,
-        string memory secret,
+        uint256 outcomeIndex,
+        string calldata secret,
         uint256 betIndex
     ) external nonReentrant duringRevealPhase(marketId) {
+        if (betIndex >= bets[marketId][msg.sender].length)
+            revert Utils.InvalidReveal();
         Utils.Bet storage bet = bets[marketId][msg.sender][betIndex];
         if (bet.revealed) revert Utils.AlreadyRevealed();
 
+        // Verify outcome index
+        if (outcomeIndex >= markets[marketId].outcomes.length)
+            revert Utils.InvalidOutcome();
+        string memory outcomeStr = markets[marketId].outcomes[outcomeIndex];
+
         // Verify commitment
-        // NOTE: i don't include msg.sender in the hash to allow for anonymity if desired in future upgrades,
-        // but for now, the bet is tied to the msg.sender's storage anyway.
-        // commitment = keccak256(abi.encodePacked(amount, outcome, secret))
         bytes32 verifyHash = keccak256(
-            abi.encodePacked(bet.amount, outcome, secret)
+            abi.encodePacked(bet.amount, outcomeStr, secret)
         );
         if (verifyHash != bet.commitment) revert Utils.InvalidCommitment();
 
-        // Verify outcome is valid for this market
-        bool validOutcome = false;
-        for (uint i = 0; i < markets[marketId].outcomes.length; i++) {
-            if (
-                keccak256(bytes(markets[marketId].outcomes[i])) ==
-                keccak256(bytes(outcome))
-            ) {
-                validOutcome = true;
-                break;
-            }
-        }
-        if (!validOutcome) revert Utils.InvalidOutcome();
-
         bet.revealed = true;
-        bet.revealedOutcome = outcome;
-        markets[marketId].outcomePools[outcome] += bet.amount;
+        bet.revealedOutcomeId = outcomeIndex;
+        markets[marketId].outcomePools[outcomeIndex] += bet.amount;
 
-        emit Utils.BetRevealed(marketId, msg.sender, outcome, bet.amount);
+        emit Utils.BetRevealed(marketId, msg.sender, outcomeStr, bet.amount);
     }
 
     /**
      * @notice Settles the market with the final outcome. Only callable by the CRE Oracle.
      * @param marketId The ID of the market.
-     * @param outcome The verified outcome.
+     * @param outcome The verified outcome string.
      */
     function settleMarket(
         uint256 marketId,
-        string memory outcome
+        string calldata outcome
     ) external onlyOracle afterRevealPhase(marketId) {
         Utils.Market storage market = markets[marketId];
         if (market.settled) revert Utils.AlreadySettled();
 
-        market.finalOutcome = outcome;
+        // Find outcome index
+        bool found = false;
+        uint256 outcomeIndex;
+        for (uint256 i = 0; i < market.outcomes.length; i++) {
+            if (
+                keccak256(bytes(market.outcomes[i])) ==
+                keccak256(bytes(outcome))
+            ) {
+                outcomeIndex = i;
+                found = true;
+                break;
+            }
+        }
+        if (!found) revert Utils.InvalidOutcome();
+
+        market.finalOutcomeId = outcomeIndex;
         market.settled = true;
 
         emit Utils.MarketSettled(marketId, outcome);
@@ -175,21 +180,18 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
         if (!market.settled) revert Utils.MarketNotSettled();
 
         uint256 payout = 0;
-        uint256 totalWinningPool = market.outcomePools[market.finalOutcome];
+        uint256 totalWinningPool = market.outcomePools[market.finalOutcomeId];
 
         // If nobody won (e.g., all bets were on wrong outcome), the pot is locked
         if (totalWinningPool == 0) revert Utils.NoWinners();
 
         Utils.Bet[] storage userBets = bets[marketId][msg.sender];
-        // In a real implementation, we'd need to iterate carefully or use a withdrawal pattern to avoid gas limits
         for (uint i = 0; i < userBets.length; i++) {
             Utils.Bet storage bet = userBets[i];
 
             // Check if bet was revealed AND matched the final outcome
             if (
-                bet.revealed &&
-                keccak256(bytes(bet.revealedOutcome)) ==
-                keccak256(bytes(market.finalOutcome))
+                bet.revealed && bet.revealedOutcomeId == market.finalOutcomeId
             ) {
                 // Calculate share: (UserBetAmount * TotalPool) / TotalWinningPool
                 uint256 share = (bet.amount * market.totalPool) /
@@ -197,7 +199,6 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
                 payout += share;
 
                 // Prevent re-claiming: Mark as already processed
-                // Simple way: set amount to 0 or revealed to false (with care)
                 bet.amount = 0;
             }
         }

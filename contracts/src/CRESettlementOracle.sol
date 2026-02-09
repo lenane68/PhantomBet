@@ -11,12 +11,10 @@ import "./Utils.sol";
  *      and triggers settlement on the PredictionMarket contract.
  */
 contract CRESettlementOracle is Ownable {
-
     PredictionMarket public predictionMarket;
 
     // Addresses allowed to submit settlements (CRE nodes)
-    mapping(address => bool) public authorizedNodes; 
-
+    mapping(address => bool) public authorizedNodes;
 
     modifier onlyAuthorizedNode() {
         if (!authorizedNodes[msg.sender] && msg.sender != owner())
@@ -24,11 +22,9 @@ contract CRESettlementOracle is Ownable {
         _;
     }
 
-
     constructor(address _predictionMarket) Ownable(msg.sender) {
         predictionMarket = PredictionMarket(_predictionMarket);
     }
-
 
     /**
      * @notice Receives settlement data from CRE workflow.
@@ -38,8 +34,8 @@ contract CRESettlementOracle is Ownable {
      */
     function receiveSettlement(
         uint256 marketId,
-        string memory outcome,
-        bytes memory proof
+        string calldata outcome,
+        bytes calldata proof
     ) external onlyAuthorizedNode {
         // In a production CRE setup, 'proof' could be a cryptographic proof of consensus.
         // For this hackathon version, we rely on the security of the authorized node list (the CRE workflow runner).
