@@ -35,7 +35,7 @@ contract CRESettlementOracle is Ownable {
     function receiveSettlement(
         uint256 marketId,
         string calldata outcome,
-        bytes calldata proof
+        bytes calldata proof //not implemented for this version
     ) external onlyAuthorizedNode {
         // In a production CRE setup, 'proof' could be a cryptographic proof of consensus.
         // For this hackathon version, we rely on the security of the authorized node list (the CRE workflow runner).
