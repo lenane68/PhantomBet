@@ -4,6 +4,9 @@
     "description": "CRE workflow for PhantomBet AI-powered settlement",
     "type": "module",
     "scripts": {
+        "build": "tsc",
+        "start": "node dist/settlement-workflow.js",
+        "dev": "tsc && node dist/settlement-workflow.js",
         "simulate": "chainlink-cre simulate src/settlement-workflow.ts",
         "deploy": "chainlink-cre deploy src/settlement-workflow.ts",
         "test": "node --test"
