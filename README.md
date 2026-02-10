@@ -4,11 +4,6 @@ A privacy-first decentralized prediction market with AI-powered settlement using
 
 > **Bet in the shadows. Settle with truth.**
 
-## 🎯 Hackathon Submission
-**Chainlink Convergence Hackathon 2026**
-- **Tracks**: Prediction Markets, CRE & AI, Risk & Compliance
-- **Team**: One Block
-
 ## 🚀 Features
 
 - **Privacy-Preserving Betting**: Commitment-reveal scheme keeps bets private during betting phase
@@ -71,7 +66,7 @@ chainlink-prediction-market/
 - **Smart Contracts**: Solidity 0.8.x, Hardhat
 - **Blockchain**: Arbitrum Sepolia (testnet)
 - **CRE**: Chainlink Runtime Environment
-- **AI**: OpenAI GPT-4
+- **AI**: OpenAI GPT-4o-MINI
 - **Frontend**: React, Vite, ethers.js
 - **Data Sources**: News API, SportsData.io
 
@@ -209,13 +204,3 @@ This project qualifies for:
 ## 📝 License
 
 MIT
-
-## 👥 Team
-
-[Your team information]
-
-## 🔗 Links
-
-- [Demo Video](link)
-- [Live Demo](link)
-- [Presentation](link)
