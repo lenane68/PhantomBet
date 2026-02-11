@@ -2,9 +2,18 @@ import React from 'react';
 import Header from './components/Header';
 import MarketExplorer from './components/MarketExplorer';
 
+import { Toaster } from 'react-hot-toast';
+
 function App() {
   return (
     <div className="app-container">
+      <Toaster position="bottom-right" toastOptions={{
+        style: {
+          background: '#121214',
+          color: '#fff',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+        },
+      }} />
       <Header />
 
       <main className="content">

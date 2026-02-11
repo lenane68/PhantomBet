@@ -1,29 +1,57 @@
+import { useState } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useAccount, useReadContract } from 'wagmi';
+import { PREDICTION_MARKET_ADDRESS, PREDICTION_MARKET_ABI } from '../contracts';
+import CreateMarketModal from './CreateMarketModal';
 
 const Header = () => {
-    return (
-        <header className="header glass">
-            <div className="header-content">
-                <div className="logo-group">
-                    <div className="logo-icon"></div>
-                    <span className="logo-text">PhantomBet</span>
-                </div>
+  const { address, isConnected } = useAccount();
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-                <nav className="nav-links">
-                    <a href="#" className="nav-link active">Markets</a>
-                    <a href="#" className="nav-link">Activity</a>
-                    <a href="#" className="nav-link">Governance</a>
-                </nav>
+  const { data: owner } = useReadContract({
+    address: PREDICTION_MARKET_ADDRESS,
+    abi: PREDICTION_MARKET_ABI,
+    functionName: 'owner',
+  });
 
-                <div className="actions">
-                    <ConnectButton
-                        accountStatus="address"
-                        showBalance={false}
-                    />
-                </div>
-            </div>
+  const isOwner = isConnected && address && owner && address.toLowerCase() === (owner as string).toLowerCase();
 
-            <style>{`
+  return (
+    <header className="header glass">
+      <div className="header-content">
+        <div className="logo-group">
+          <div className="logo-icon"></div>
+          <span className="logo-text">PhantomBet</span>
+        </div>
+
+        <nav className="nav-links">
+          <a href="#" className="nav-link active">Markets</a>
+          <a href="#" className="nav-link">Activity</a>
+          <a href="#" className="nav-link">Governance</a>
+        </nav>
+
+        <div className="actions">
+          {isOwner && (
+            <button
+              className="btn-create"
+              onClick={() => setIsModalOpen(true)}
+            >
+              Create Market
+            </button>
+          )}
+          <ConnectButton
+            accountStatus="address"
+            showBalance={false}
+          />
+        </div>
+      </div>
+
+      <CreateMarketModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
+
+      <style>{`
         .header {
           position: fixed;
           top: 0;
@@ -105,9 +133,32 @@ const Header = () => {
           background: var(--accent-cyan);
           box-shadow: 0 0 10px var(--accent-cyan);
         }
+
+        .actions {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+
+        .btn-create {
+          background: rgba(0, 245, 255, 0.1);
+          border: 1px solid var(--accent-cyan);
+          color: var(--accent-cyan);
+          padding: 8px 16px;
+          border-radius: var(--radius-md);
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .btn-create:hover {
+          background: var(--accent-cyan);
+          color: black;
+          box-shadow: 0 0 15px rgba(0, 245, 255, 0.4);
+        }
       `}</style>
-        </header>
-    );
+    </header>
+  );
 };
 
 export default Header;

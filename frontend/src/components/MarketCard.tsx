@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { ethers } from 'ethers';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, useWriteContract, usePublicClient } from 'wagmi';
 import { formatEther, parseEther } from 'viem';
 import { PREDICTION_MARKET_ADDRESS, PREDICTION_MARKET_ABI } from '../contracts';
 import { Market } from '../hooks/useMarkets';
 import { Vault } from '../utils/vault';
+import toast from 'react-hot-toast';
 
 interface MarketCardProps {
     market: Market;
@@ -16,53 +17,115 @@ const MarketCard = ({ market }: MarketCardProps) => {
     const [selectedOutcome, setSelectedOutcome] = useState<number | null>(null);
     const [isRevealing, setIsRevealing] = useState(false);
 
-    const { writeContract, data: hash } = useWriteContract();
-    const { isLoading: isWaiting } = useWaitForTransactionReceipt({ hash });
+    const publicClient = usePublicClient();
+    const { writeContractAsync, isPending } = useWriteContract();
 
     const now = BigInt(Math.floor(Date.now() / 1000));
     const isBettingActive = now < market.bettingDeadline;
     const isRevealActive = !isBettingActive && now < market.revealDeadline && !market.revealed;
 
-    // Fake outcomes for now as we don't fetch them from storage yet (need to update hook)
-    const outcomes = ["Yes", "No"];
+    // Use outcomes from the hook
+    const outcomes = market.outcomes && market.outcomes.length > 0 ? market.outcomes : ["Yes", "No"];
 
     const handlePlaceBet = async () => {
-        if (selectedOutcome === null) return;
+        if (selectedOutcome === null) {
+            toast.error('Please select an outcome first');
+            return;
+        }
 
-        const secret = Math.random().toString(36).substring(7);
-        const amount = parseEther(betAmount);
+        try {
+            const secret = Math.random().toString(36).substring(7);
+            const amount = parseEther(betAmount);
 
-        // Commitment: keccak256(abi.encodePacked(amount, outcomeStr, secret))
-        const commitment = ethers.solidityPackedKeccak256(
-            ["uint256", "string", "string"],
-            [amount, outcomes[selectedOutcome], secret]
-        ) as `0x${string}`;
+            // Commitment: keccak256(abi.encodePacked(amount, outcomeStr, secret))
+            const commitment = ethers.solidityPackedKeccak256(
+                ["uint256", "string", "string"],
+                [amount, outcomes[selectedOutcome], secret]
+            ) as `0x${string}`;
 
-        Vault.saveSecret(market.id, {
-            outcome: outcomes[selectedOutcome],
-            outcomeIndex: selectedOutcome,
-            secret
-        });
+            Vault.saveSecret(market.id, {
+                outcome: outcomes[selectedOutcome],
+                outcomeIndex: selectedOutcome,
+                secret
+            });
 
-        writeContract({
-            address: PREDICTION_MARKET_ADDRESS,
-            abi: PREDICTION_MARKET_ABI,
-            functionName: 'placeBet',
-            args: [market.id, commitment],
-            value: amount,
-        });
+            // Calculate fees with 50% buffer to handle Arbitrum Sepolia volatility
+            const feeData = await publicClient?.estimateFeesPerGas();
+            let maxFeePerGas = undefined;
+            let maxPriorityFeePerGas = undefined;
+
+            if (feeData?.maxFeePerGas && feeData?.maxPriorityFeePerGas) {
+                // Buffer increased to 50% (150/100)
+                maxFeePerGas = (feeData.maxFeePerGas * 150n) / 100n;
+                maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
+            }
+
+            const hash = await writeContractAsync({
+                address: PREDICTION_MARKET_ADDRESS,
+                abi: PREDICTION_MARKET_ABI,
+                functionName: 'placeBet',
+                args: [market.id, commitment],
+                value: amount,
+                maxFeePerGas,
+                maxPriorityFeePerGas
+            });
+
+            toast.loading('Placing bet...', { id: 'place-bet' });
+
+            const receipt = await publicClient?.waitForTransactionReceipt({ hash });
+
+            if (receipt?.status === 'success') {
+                toast.success('Bet placed successfully!', { id: 'place-bet' });
+                // Reset form
+                setBetAmount('0.01');
+                setSelectedOutcome(null);
+            } else {
+                toast.error('Bet transaction failed.', { id: 'place-bet' });
+            }
+
+        } catch (error: any) {
+            console.error(error);
+            if (error.message && error.message.includes('message channel closed')) {
+                toast.error('Wallet connection lost. Please refresh the page.', { id: 'place-bet' });
+            } else {
+                toast.error('Failed to place bet', { id: 'place-bet' });
+            }
+        }
     };
 
     const handleReveal = async () => {
         const saved = Vault.getSecret(market.id);
-        if (!saved) return;
+        if (!saved) {
+            toast.error('No secret found for this market');
+            return;
+        }
 
-        writeContract({
-            address: PREDICTION_MARKET_ADDRESS,
-            abi: PREDICTION_MARKET_ABI,
-            functionName: 'revealBet',
-            args: [market.id, BigInt(saved.outcomeIndex), saved.secret, BigInt(0)], // Assuming 1st bet for demo
-        });
+        try {
+            const hash = await writeContractAsync({
+                address: PREDICTION_MARKET_ADDRESS,
+                abi: PREDICTION_MARKET_ABI,
+                functionName: 'revealBet',
+                args: [market.id, BigInt(saved.outcomeIndex), saved.secret, BigInt(0)],
+            });
+
+            toast.loading('Revealing bet...', { id: 'reveal-bet' });
+
+            const receipt = await publicClient?.waitForTransactionReceipt({ hash });
+
+            if (receipt?.status === 'success') {
+                toast.success('Bet revealed successfully!', { id: 'reveal-bet' });
+                setIsRevealing(false); // Update local state if needed
+            } else {
+                toast.error('Reveal transaction failed.', { id: 'reveal-bet' });
+            }
+        } catch (error: any) {
+            console.error(error);
+            if (error.message && error.message.includes('message channel closed')) {
+                toast.error('Wallet connection lost. Please refresh the page.', { id: 'reveal-bet' });
+            } else {
+                toast.error('Failed to reveal bet', { id: 'reveal-bet' });
+            }
+        }
     };
 
     return (
@@ -107,10 +170,14 @@ const MarketCard = ({ market }: MarketCardProps) => {
                                 <button
                                     className="btn-main"
                                     onClick={handlePlaceBet}
-                                    disabled={!isConnected || isWaiting}
+                                    disabled={!isConnected || isPending}
                                 >
-                                    {isWaiting ? 'Confirming...' : 'Place Private Bet'}
+                                    {isPending ? 'Confirming...' : 'Place Private Bet'}
                                 </button>
+                            </div>
+                            <div className="warning-banner">
+                                <span className="warning-icon">⚠️</span>
+                                <p><strong>IMPORTANT:</strong> You must return during the <strong>Reveal Phase</strong> to confirm your bet. If you miss this window, your funds will be lost forever.</p>
                             </div>
                         </>
                     ) : isRevealActive ? (
@@ -215,6 +282,30 @@ const MarketCard = ({ market }: MarketCardProps) => {
         .btn-main { background: var(--gradient-neon); color: black; }
         .btn-reveal { background: var(--accent-purple); color: white; width: 100%; }
         .btn-claim { background: #00ff7f; color: black; width: 100%; }
+
+        .warning-banner {
+          background: rgba(255, 179, 0, 0.1);
+          border: 1px solid rgba(255, 179, 0, 0.4);
+          color: #ffb300;
+          padding: 12px;
+          border-radius: var(--radius-md);
+          font-size: 0.75rem;
+          margin-top: 12px;
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          line-height: 1.4;
+        }
+
+        .warning-banner strong {
+          font-weight: 700;
+          color: #ffd700;
+        }
+
+        .warning-icon {
+          font-size: 1.1rem;
+          flex-shrink: 0;
+        }
       `}</style>
         </div>
     );

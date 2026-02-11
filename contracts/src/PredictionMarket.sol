@@ -217,4 +217,14 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
     function setOracle(address _oracle) external onlyOwner {
         oracleAddress = _oracle;
     }
+
+    /**
+     * @notice Returns the outcomes for a given market.
+     * @param marketId The ID of the market.
+     */
+    function getMarketOutcomes(
+        uint256 marketId
+    ) external view returns (string[] memory) {
+        return markets[marketId].outcomes;
+    }
 }

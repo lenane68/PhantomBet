@@ -7,15 +7,28 @@ import './index.css';
 import '@rainbow-me/rainbowkit/styles.css';
 import { getDefaultConfig, RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit';
 import { WagmiProvider, http } from 'wagmi';
-import { arbitrumSepolia } from 'wagmi/chains';
+import { type Chain } from 'viem';
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
+
+const monadTestnet = {
+    id: 10143,
+    name: 'Monad Testnet',
+    nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
+    rpcUrls: {
+        default: { http: ['https://testnet-rpc.monad.xyz/'] },
+    },
+    blockExplorers: {
+        default: { name: 'Monad Explorer', url: 'https://testnet.monadexplorer.com' },
+    },
+    testnet: true,
+} as const satisfies Chain;
 
 const config = getDefaultConfig({
     appName: 'PhantomBet',
     projectId: 'YOUR_PROJECT_ID', // Usually configured via .env or dummy for hackathon
-    chains: [arbitrumSepolia],
+    chains: [monadTestnet],
     transports: {
-        [arbitrumSepolia.id]: http(import.meta.env.VITE_ARBITRUM_SEPOLIA_RPC),
+        [monadTestnet.id]: http('https://testnet-rpc.monad.xyz/'),
     },
     ssr: false,
 });
