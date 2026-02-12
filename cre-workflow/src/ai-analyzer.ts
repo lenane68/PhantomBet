@@ -27,7 +27,7 @@ export class AIAnalyzer {
         dataSources: DataSource[],
         apiKey: string
     ): Promise<string> {
-        const nodeRun = runtime.runInNodeMode(
+        const nodeRunFunction = runtime.runInNodeMode(
             async (nodeRuntime) => {
                 try {
                     const context = dataSources
@@ -113,13 +113,14 @@ IMPORTANT:
             consensusIdenticalAggregation<string>() as any
         );
 
-        const execution = await nodeRun();
-        const result = execution.result();
+        // runInNodeMode returns a function that returns a Promise for the ExecutionResult
+        const executionResult = await nodeRunFunction();
+        const resultValue = executionResult.result();
 
         try {
-            return Value.from(result).unwrap() as string;
+            return Value.from(resultValue as any).unwrap() as string;
         } catch (e) {
-            return String(result || outcomes[0]);
+            return String(resultValue || outcomes[0]);
         }
     }
 }
