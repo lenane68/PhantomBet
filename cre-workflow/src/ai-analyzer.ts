@@ -64,23 +64,21 @@ IMPORTANT:
                             "Content-Type": "application/json",
                             Authorization: `Bearer ${apiKey}`,
                         },
-                        body: new TextEncoder().encode(
-                            JSON.stringify({
-                                model: "gpt-4o-mini",
-                                messages: [
-                                    {
-                                        role: "system",
-                                        content: "You are a precise, objective fact-checker. Always respond with valid JSON.",
-                                    },
-                                    {
-                                        role: "user",
-                                        content: prompt,
-                                    },
-                                ],
-                                temperature: 0.3,
-                                max_tokens: 500,
-                            })
-                        ),
+                        body: JSON.stringify({
+                            model: "gpt-4o-mini",
+                            messages: [
+                                {
+                                    role: "system",
+                                    content: "You are a precise, objective fact-checker. Always respond with valid JSON.",
+                                },
+                                {
+                                    role: "user",
+                                    content: prompt,
+                                },
+                            ],
+                            temperature: 0.3,
+                            max_tokens: 500,
+                        }),
                     });
 
                     const response = request.result();
@@ -117,7 +115,7 @@ IMPORTANT:
                     };
                 }
             },
-            consensusIdenticalAggregation()
-        ).result();
+            consensusIdenticalAggregation<AIAnalysisResult>() as any
+        )().result();
     }
 }

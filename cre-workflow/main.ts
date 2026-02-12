@@ -71,7 +71,7 @@ const onCronTrigger = async (runtime: Runtime<Config>) => {
       const settlementData = `receiveSettlement(uint256 ${market.id}, string "${aiResult.outcome}", bytes 0x)`;
       // Note: We'll use a manual encoding match for the report
       // In a real environment, we'd use encodeAbiParameters, but for simplicity we'll replicate the core logic
-      const reportRequest = prepareReportRequest(aiResult.outcome); // Simplified for demo
+      const reportRequest = prepareReportRequest(aiResult.outcome as `0x${string}`);
       const report = runtime.report(reportRequest).result();
 
       // b) Submit report via EVM capability

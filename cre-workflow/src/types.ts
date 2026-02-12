@@ -37,6 +37,17 @@ export interface SettlementResult {
     txHash?: string;
 }
 
+export interface NewsAPIResponse {
+    status: string;
+    totalResults: number;
+    articles: Array<{
+        title: string;
+        description: string;
+        url: string;
+        publishedAt: string;
+    }>;
+}
+
 export interface ConsensusData {
     agreedOutcome: string;
     outcomeIndex: number;
