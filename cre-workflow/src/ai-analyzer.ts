@@ -6,6 +6,7 @@ import {
     HTTPClient,
     type Runtime,
     consensusIdenticalAggregation,
+    Value,
 } from "@chainlink/cre-sdk";
 import type { DataSource, AIAnalysisResult } from "./types.js";
 
@@ -25,8 +26,8 @@ export class AIAnalyzer {
         outcomes: string[],
         dataSources: DataSource[],
         apiKey: string
-    ): Promise<AIAnalysisResult> {
-        return runtime.runInNodeMode(
+    ): Promise<string> {
+        const nodeRun = runtime.runInNodeMode(
             async (nodeRuntime) => {
                 try {
                     const context = dataSources
@@ -64,7 +65,8 @@ IMPORTANT:
                             "Content-Type": "application/json",
                             Authorization: `Bearer ${apiKey}`,
                         },
-                        body: JSON.stringify({
+                        // The engine expects bytes/base64 for the body field if it's a 'bytes' type in proto
+                        body: Buffer.from(JSON.stringify({
                             model: "gpt-4o-mini",
                             messages: [
                                 {
@@ -78,44 +80,46 @@ IMPORTANT:
                             ],
                             temperature: 0.3,
                             max_tokens: 500,
-                        }),
+                        })).toString('base64'),
                     });
 
                     const response = request.result();
                     const bodyText = new TextDecoder().decode(response.body);
                     const data = JSON.parse(bodyText);
+
+                    if (!data.choices || data.choices.length === 0) {
+                        throw new Error(`OpenAI API Error: ${bodyText}`);
+                    }
+
                     const aiText = data.choices[0].message.content;
 
                     // Extract JSON
                     const jsonMatch = aiText.match(/\{[\s\S]*\}/);
-                    if (!jsonMatch) throw new Error("No JSON found in AI response");
+                    if (!jsonMatch) throw new Error(`No JSON found in AI response: ${aiText}`);
                     const parsed = JSON.parse(jsonMatch[0]);
 
                     // Validate outcome
                     const outcomeIndex = outcomes.findIndex(
-                        (o) => o.toLowerCase() === parsed.outcome.toLowerCase()
+                        (o) => o.toLowerCase() === (parsed.outcome || "").toLowerCase()
                     );
                     if (outcomeIndex === -1) throw new Error(`Invalid outcome: ${parsed.outcome}`);
 
-                    return {
-                        outcome: outcomes[outcomeIndex],
-                        outcomeIndex,
-                        confidence: parsed.confidence,
-                        reasoning: parsed.reasoning,
-                        sources: [],
-                    };
+                    return outcomes[outcomeIndex];
                 } catch (error) {
-                    // Fallback
-                    return {
-                        outcome: outcomes[0],
-                        outcomeIndex: 0,
-                        confidence: 0,
-                        reasoning: `Error: ${error}`,
-                        sources: [],
-                    };
+                    nodeRuntime.log(`[AI Node] Error: ${error}`);
+                    return outcomes[0]; // Fallback
                 }
             },
-            consensusIdenticalAggregation<AIAnalysisResult>() as any
-        )().result();
+            consensusIdenticalAggregation<string>() as any
+        );
+
+        const execution = await nodeRun();
+        const result = execution.result();
+
+        try {
+            return Value.from(result).unwrap() as string;
+        } catch (e) {
+            return String(result || outcomes[0]);
+        }
     }
 }

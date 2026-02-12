@@ -47,13 +47,13 @@ export class DataSourceClient {
                     name: "NewsAPI",
                     data: articles,
                     confidence: 0.8,
-                    timestamp: Date.now(),
+                    timestamp: 0, // Set to 0 for consensus determinism
                 };
             },
             // Consensus: For text data, consensus usually means nodes provide identical or similar strings.
             // We'll use consensusIdenticalAggregation to ensure all nodes agree on the exact string.
-            consensusIdenticalAggregation()
-        ).result();
+            consensusIdenticalAggregation<DataSource>() as any
+        )().result() as Promise<DataSource>;
     }
 
     /**
@@ -79,7 +79,7 @@ export class DataSourceClient {
                 return data[coinId]?.usd || null;
             },
             consensusIdenticalAggregation<number | null>() as any
-        )().result();
+        )().result() as Promise<number | null>;
     }
 
     /**
@@ -100,7 +100,7 @@ export class DataSourceClient {
                 name: "General Knowledge (GPT-4 Internal)",
                 data: `The AI analyzer will verify the following question using its internal knowledge base: "${question}".`,
                 confidence: 0.5,
-                timestamp: Date.now(),
+                timestamp: 0, // Set to 0 for consensus determinism
             });
         }
 

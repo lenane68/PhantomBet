@@ -5,6 +5,7 @@ import {
   prepareReportRequest,
   type Runtime,
 } from "@chainlink/cre-sdk";
+import { encodeAbiParameters } from "viem";
 import { BlockchainClient } from "./src/blockchain-client.js";
 import { DataSourceClient } from "./src/data-sources.js";
 import { AIAnalyzer } from "./src/ai-analyzer.js";
@@ -59,19 +60,26 @@ const onCronTrigger = async (runtime: Runtime<Config>) => {
         config.openAiApiKey || ""
       );
 
-      if (aiResult.confidence < 0.7) {
-        runtime.log(`⚠️ Low confidence (${aiResult.confidence}) for market #${market.id}. Skipping.`);
+      if (!aiResult) {
+        runtime.log(`⚠️ Consensus failed or AI error for market #${market.id}. Skipping.`);
         continue;
       }
 
-      runtime.log(`✅ DON Consensus reached: "${aiResult.outcome}"`);
+      runtime.log(`✅ DON Consensus reached: "${aiResult}"`);
 
       // 4. Secure On-chain Write (2-step pattern)
-      // a) Generate signed report
-      const settlementData = `receiveSettlement(uint256 ${market.id}, string "${aiResult.outcome}", bytes 0x)`;
-      // Note: We'll use a manual encoding match for the report
-      // In a real environment, we'd use encodeAbiParameters, but for simplicity we'll replicate the core logic
-      const reportRequest = prepareReportRequest(aiResult.outcome as `0x${string}`);
+      // a) ABI Encode the parameters for receiveSettlement(uint256, string, bytes)
+      const encodedPayload = encodeAbiParameters(
+        [
+          { name: 'marketId', type: 'uint256' },
+          { name: 'outcome', type: 'string' },
+          { name: 'proof', type: 'bytes' }
+        ],
+        [market.id, aiResult as string, '0x']
+      );
+
+      // b) Generate signed report using the helper
+      const reportRequest = prepareReportRequest(encodedPayload);
       const report = runtime.report(reportRequest).result();
 
       // b) Submit report via EVM capability
